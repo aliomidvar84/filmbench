@@ -1,0 +1,22 @@
+{
+  "name": "@filmbench/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "npm --prefix ../.. exec -- tsx src/migrate.ts",
+    "lint": "npm --prefix ../.. exec -- eslint src",
+    "test": "npm --prefix ../.. exec -- vitest run"
+  },
+  "dependencies": {
+    "@filmbench/shared": "file:../shared",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/pg": "^8.15.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.46.3"
+  }
+}

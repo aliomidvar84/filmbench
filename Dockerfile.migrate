@@ -1,0 +1,16 @@
+# One-shot migration job (same deps as API)
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/db/package.json packages/db/
+
+RUN npm ci
+
+COPY packages/shared packages/shared
+COPY packages/db packages/db
+
+ENV NODE_ENV=production
+
+CMD ["npm", "run", "db:migrate"]

@@ -1,0 +1,160 @@
+# FilmBench production stack (Sprint 25)
+# Usage: copy .env.production.example → .env then:
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-filmbench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-filmbench}
+    volumes:
+      - filmbench_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - filmbench
+
+  analytics-cron:
+    image: node:20-alpine
+    restart: unless-stopped
+    profiles: ["with-clickhouse"]
+    working_dir: /app
+    volumes:
+      - .:/app:ro
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmbench}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmbench}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_ENABLED: "true"
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-filmbench}
+      ANALYTICS_CRON_HOUR_UTC: ${ANALYTICS_CRON_HOUR_UTC:-2}
+      ANALYTICS_CRON_MINUTE_UTC: ${ANALYTICS_CRON_MINUTE_UTC:-0}
+    command: ["sh", "-c", "npm exec tsx scripts/analytics-scheduler.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - filmbench
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    restart: unless-stopped
+    profiles: ["with-clickhouse"]
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-filmbench}
+    volumes:
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - filmbench_chdata:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - filmbench
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles: ["with-redis"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - filmbench_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - filmbench
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmbench}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmbench}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - filmbench
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_ENV: ${APP_ENV:-production}
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmbench}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmbench}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_ACCESS_TTL_MIN: ${JWT_ACCESS_TTL_MIN:-15}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:3000}
+      UPLOAD_DIR: /data/uploads
+      REPORTS_DIR: /data/reports
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_ENABLED: ${CLICKHOUSE_ENABLED:-false}
+      USE_CLICKHOUSE_QUERIES: ${USE_CLICKHOUSE_QUERIES:-false}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-filmbench}
+    volumes:
+      - filmbench_uploads:/data/uploads
+      - filmbench_reports:/data/reports
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - filmbench
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://127.0.0.1:4000}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - filmbench
+
+networks:
+  filmbench:
+    driver: bridge
+
+volumes:
+  filmbench_pgdata:
+  filmbench_chdata:
+  filmbench_redisdata:
+  filmbench_uploads:
+  filmbench_reports:

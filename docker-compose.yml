@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-filmbench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-filmbench}
+      POSTGRES_DB: ${POSTGRES_DB:-filmbench}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - filmbench_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  analytics-cron:
+    image: node:20-alpine
+    restart: unless-stopped
+    profiles: ["with-clickhouse"]
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmbench}:${POSTGRES_PASSWORD:-filmbench}@postgres:5432/${POSTGRES_DB:-filmbench}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_ENABLED: "true"
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-filmbench}
+      ANALYTICS_CRON_HOUR_UTC: ${ANALYTICS_CRON_HOUR_UTC:-2}
+      ANALYTICS_CRON_MINUTE_UTC: ${ANALYTICS_CRON_MINUTE_UTC:-0}
+      ANALYTICS_SYNC_CONCURRENCY: ${ANALYTICS_SYNC_CONCURRENCY:-2}
+    command: ["sh", "-c", "npm exec tsx scripts/analytics-scheduler.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    restart: unless-stopped
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+    volumes:
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - filmbench_chdata:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - filmbench_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  filmbench_pgdata:
+  filmbench_chdata:
+  filmbench_redisdata:

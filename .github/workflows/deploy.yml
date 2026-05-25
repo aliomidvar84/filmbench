@@ -1,0 +1,37 @@
+# Build production Docker images on main (Sprint 25 CD stub).
+# Add registry login + push when GHCR/ACR credentials are configured.
+name: CD
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f Dockerfile.api -t filmbench-api:ci .
+
+      - name: Build migrate image
+        run: docker build -f Dockerfile.migrate -t filmbench-migrate:ci .
+
+      - name: Build Web image
+        run: |
+          docker build -f Dockerfile.web -t filmbench-web:ci \
+            --build-arg NEXT_PUBLIC_API_URL=http://127.0.0.1:4000 .
+
+      - name: Save image list
+        run: |
+          echo "filmbench-api:ci" > images.txt
+          echo "filmbench-migrate:ci" >> images.txt
+          echo "filmbench-web:ci" >> images.txt
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-tags
+          path: images.txt

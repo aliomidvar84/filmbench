@@ -1,0 +1,14 @@
+node_modules
+.git
+.next
+.env
+.env.*
+!.env.production.example
+!.env.example
+dist
+coverage
+**/*.test.ts
+**/.next
+terminals
+agent-transcripts
+mcps

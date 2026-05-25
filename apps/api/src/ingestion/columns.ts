@@ -1,0 +1,31 @@
+/** First-sheet header row for monthly production Excel (maps to `production_fact_monthly`). */
+export const MONTHLY_EXCEL_HEADERS = [
+  "line_code",
+  "period_start",
+  "period_end",
+  "total_input_kg",
+  "total_output_kg",
+  "good_output_kg",
+  "scrap_kg",
+  "rework_kg",
+  "runtime_hours",
+  "planned_downtime_hours",
+  "unplanned_downtime_hours",
+  "total_available_hours",
+  "actual_speed",
+  "design_speed",
+  "total_energy_kwh",
+  "energy_cost_amount",
+  "raw_material_cost_amount",
+  "labor_cost_amount",
+  "overhead_cost_amount",
+  "other_cost_amount",
+  "total_cost_amount",
+  "startup_waste_kg",
+  "line_break_count",
+  "defect_count",
+  "changeover_count",
+  "currency_code",
+] as const;
+
+export type MonthlyExcelHeader = (typeof MONTHLY_EXCEL_HEADERS)[number];

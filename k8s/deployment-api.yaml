@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: filmbench-api
+  namespace: filmbench
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: filmbench-api
+  template:
+    metadata:
+      labels:
+        app: filmbench-api
+    spec:
+      containers:
+        - name: api
+          image: filmbench-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - secretRef:
+                name: filmbench-env
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: APP_ENV
+              value: production
+            - name: API_HOST
+              value: 0.0.0.0
+            - name: API_PORT
+              value: "4000"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m

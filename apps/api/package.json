@@ -1,0 +1,38 @@
+{
+  "name": "@filmbench/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix ../.. exec -- tsx watch src/index.ts",
+    "build": "npm --prefix ../.. exec -- tsc --noEmit -p tsconfig.json",
+    "start": "npm --prefix ../.. exec -- tsx src/index.ts",
+    "start:prod": "NODE_ENV=production npm --prefix ../.. exec -- tsx src/index.ts",
+    "lint": "npm --prefix ../.. exec -- eslint src",
+    "test": "npm --prefix ../.. exec -- vitest run"
+  },
+  "dependencies": {
+    "@filmbench/analytics": "file:../../packages/analytics",
+    "@filmbench/shared": "file:../../packages/shared",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/busboy": "^1.5.4",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.20.0",
+    "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
+    "jsonwebtoken": "^9.0.3",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.20.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^20",
+    "@types/pdfkit": "^0.17.3",
+    "eslint": "^9",
+    "globals": "^16.5.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8.46.3",
+    "vitest": "^3.2.4"
+  }
+}
