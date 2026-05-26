@@ -20,10 +20,27 @@ const server = createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
 
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
+  // health check
+  if (req.url === "/health") {
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // preflight
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
     res.end();
@@ -34,8 +51,16 @@ const server = createServer((req, res) => {
     logJson("error", "request_handler_failed", {
       error: err instanceof Error ? err.message : String(err),
     });
+
+    console.error(err);
+
     res.statusCode = 500;
-    res.end("internal_error");
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        error: "internal_error",
+      })
+    );
   });
 });
 
@@ -46,4 +71,6 @@ server.listen(port, host, () => {
     node_env: process.env.NODE_ENV,
     app_env: process.env.APP_ENV,
   });
+
+  console.log(`API listening on ${host}:${port}`);
 });
